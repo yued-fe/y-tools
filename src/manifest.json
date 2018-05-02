@@ -1,18 +1,57 @@
 {
-  "compatibleVersion": 3,
-  "bundleVersion": 1,
+  "name": "y-tools",
+  "description": "Sketch plugin tools from yued-fe.TM",
+  "version": "1.0.0",
+  "author": "yued-fe.TM",
+  "homePage": "git@github.com:yued-fe/y-tools.git",
   "icon": "icon.png",
-  "commands": [
-    {
-      "name": "my-command",
-      "identifier": "my-command-identifier",
-      "script": "./my-command.js"
-    }
-  ],
+  "commands": [{
+    "name": "ScopeIcon/图标结界",
+    "identifier": "scopeIconIdentifier",
+    "handler": "scopeIcon",
+    "shortcut": "ctrl alt cmd i",
+    "script": "./main.js"
+  }, {
+    "name": "UnScopeIcon/图标结界解除",
+    "identifier": "unScopeIconIdentifier",
+    "handler": "unScopeIcon",
+    "script": "./main.js"
+  }, {
+    "name": "CreateTextStyle/创建共享文本样式",
+    "identifier": "createTextStyleIdentifier",
+    "script": "./main.js",
+    "handler": "createTextStyle",
+    "shortcut": "cmd alt ctrl s"
+  }, {
+    "name": "BoundingBox/显示边框",
+    "script": "./main.js",
+    "shortcut": "ctrl alt cmd b",
+    "identifier": "showBoundingBoxIdentifier",
+    "handler": "showBoundingBox"
+  }, {
+    "name": "Topographic/显示地貌",
+    "script": "./main.js",
+    "shortcut": "ctrl alt cmd t",
+    "identifier": "showTopographicIdentifier",
+    "handler": "showTopographic"
+  }, {
+    "name": "Clear/清除",
+    "script": "./main.js",
+    "shortcut": "ctrl alt cmd z",
+    "identifier": "topographicClearIdentifier",
+    "handler": "clearTopographic"
+  }],
   "menu": {
-    "title": "YUX-tools",
+    "title": "y-tools",
     "items": [
-      "my-command-identifier"
+      "scopeIconIdentifier",
+      "unScopeIconIdentifier",
+      "-",
+      "createTextStyleIdentifier",
+      "-",
+      "showBoundingBoxIdentifier",
+      "showTopographicIdentifier",
+      "topographicClearIdentifier"
     ]
   }
 }

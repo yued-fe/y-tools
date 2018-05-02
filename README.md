@@ -1,93 +1,49 @@
-# YUX-tools
+<h1 align="center">y-tools - Sketch plugins from yued-fe.TM</h1>
 
-_This plugin was created using `skpm`. For a detailed explanation on how things work, checkout the [skpm Readme](https://github.com/skpm/skpm/blob/master/README.md)._
+## Features
 
-## Usage
+1. Scope icon | 图标结界
+2. Create shared text style with rules | 创建共享文本样式
+3. Topographic | 显示设计稿地貌和线框
 
-Install the dependencies
 
-```bash
-npm install
-```
+### Scope icon | 图标结界
 
-Once the installation is done, you can run some commands inside the project folder:
+![scopeIcon-demo](./assets/scopeIcon.gif)
 
-```bash
-npm run build
-```
+`ctrl alt cmd i`
 
-To watch for changes:
+Wrap the Icon with a square(4n).
 
-```bash
-npm run watch
-```
+以图标中心点为中心，创建一个最接近的以4为倍数的透明正方形，然后用一个Group包裹图标和背景。
 
-Additionally, if you wish to run the plugin every time it is built:
+### Create shared text style with rules | 创建共享文本样式
 
-```bash
-npm run start
-```
+![sharedtext-demo](./assets/sharedtext.jpg)
 
-## Custom Configuration
+`ctrl alt cmd s`
 
-### Babel
+Create Shared text with name `${fontFamily}/${fontSize}/${lineHeight}/${color}/${fontWeight}`
 
-To customize Babel, you have two options:
+### Topographic | 显示设计稿地貌和线框
 
-* You may create a [`.babelrc`](https://babeljs.io/docs/usage/babelrc) file in your project's root directory. Any settings you define here will overwrite matching config-keys within skpm preset. For example, if you pass a "presets" object, it will replace & reset all Babel presets that skpm defaults to.
+![topographic-demo](./assets/topographic.jpg)
 
-* If you'd like to modify or add to the existing Babel config, you must use a `webpack.skpm.config.js` file. Visit the [Webpack](#webpack) section for more info.
+`ctrl alt cmd t`
 
-### Webpack
+show the frame with a 'rgba(0,0,0,0.1)' shape
 
-To customize webpack create `webpack.skpm.config.js` file which exports function that will change webpack's config.
+`ctrl alt cmd b`
 
-```js
-/**
- * Function that mutates original webpack config.
- * Supports asynchronous changes when promise is returned.
- *
- * @param {object} config - original webpack config.
- * @param {boolean} isPluginCommand - whether the config is for a plugin command or a resource
- **/
-module.exports = function(config, isPluginCommand) {
-  /** you can change config here **/
-}
-```
+show the frame with a 'rgba(0,255,255,0.8)' border
 
-## Debugging
+`ctrl alt cmd z`
 
-To view the output of your `console.log`, you have a few different options:
+clear all
 
-* Use the [`sketch-dev-tools`](https://github.com/skpm/sketch-dev-tools)
-* Open `Console.app` and look for the sketch logs
-* Look at the `~/Library/Logs/com.bohemiancoding.sketch3/Plugin Output.log` file
+* In our team, we highly recommend that each text should be a shared text style. If there is a text without shared text style the gray shape or the blue line will turn out to be red. 
+* When the text layer `Height%lightHeight!=0` it is error too. 
 
-Skpm provides a convenient way to do the latter:
+Of course you can Ingore all the rule when your layer name with `_` start.
 
-```bash
-skpm log
-```
 
-The `-f` option causes `skpm log` to not stop when the end of logs is reached, but rather to wait for additional data to be appended to the input
-
-## Publishing your plugin
-
-```bash
-skpm publish <bump>
-```
-
-(where `bump` can be `patch`, `minor` or `major`)
-
-`skpm publish` will create a new release on your GitHub repository and create an appcast file in order for Sketch users to be notified of the update.
-
-You will need to specify a `repository` in the `package.json`:
-
-```diff
-...
-+ "repository" : {
-+   "type": "git",
-+   "url": "git+https://github.com/ORG/NAME.git"
-+  }
-...
-```

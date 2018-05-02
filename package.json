@@ -1,16 +1,16 @@
 {
-  "name": "yux-tools",
-  "version": "0.1.0",
+  "name": "y-tools",
+  "version": "0.0.0",
+  "author": "yued-fe.TM",
+  "description": "Sketch plugin tools yued-fe.TM",
+  "repository": "git@github.com:yued-fe/y-tools.git",
   "engines": {
     "sketch": ">=3.0"
   },
   "skpm": {
-    "name": "YUX-tools",
+    "name": "y-tools",
     "manifest": "src/manifest.json",
-    "main": "plugin.sketchplugin",
-    "assets": [
-      "assets/**/*"
-    ]
+    "main": "y-tools.sketchplugin"
   },
   "scripts": {
     "build": "skpm-build",
@@ -20,6 +20,5 @@
   },
   "devDependencies": {
     "@skpm/builder": "^0.5.2"
-  },
-  "author": "ziven27 <p_czhzheng@tencent.com>"
+  }
 }
