@@ -30,8 +30,8 @@ export default function (context) {
 
   const textStyleName = generateStyleName(textStyles);
   const currentTextStyles = context.document.documentData().layerTextStyles();
-  // MSSharedStyle.alloc().initWithName_firstInstance(textStyleName, target.style())
-  currentTextStyles.addSharedStyleWithName_firstInstance(textStyleName, target.style());
+  const s = MSSharedStyle.alloc().initWithName_firstInstance(textStyleName, target.style());
+  currentTextStyles.addSharedObject(s);
   _utils.msg("Success!");
 }
 

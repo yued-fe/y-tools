@@ -36,12 +36,11 @@ function scopeIcon(context) {
 	});
 
 	// 重新挪动矩形位置
-	shape.frame = shape.localRectToParentRect(
-		new Rectangle({
-			x: ajustInfo.x,
-			y: ajustInfo.y
-		})
-	);
+	var rect = new Rectangle({
+		x: ajustInfo.x,
+		y: ajustInfo.y
+	});
+	rect.changeBasis({ from: shape, to: shape.parent });
 
 	// 移动到最底层
 	shape.moveToBack();

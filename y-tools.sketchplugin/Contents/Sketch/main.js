@@ -85,22 +85,116 @@ var exports =
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
+/**
+ * 基础库
+ * detach:解锁symbol
+ * getCurrentArtBoard:获取当前选中元素的artboard
+ * msg:显示信息
+ * getLastLayer:获取最后一个子元素
+ * getGroupWithAllSon:获取该层所有元素的拷贝
+ * getColorByString:根据颜色字符串转换成sketch需要的颜色对象
+ * setFillColor:设置fill的颜色
+ * setBorderColor:设置边框的颜色
+ * setTextInfo:获取文本的信息
+ * appendLayers:添加元素
+ * replaceLayerByShapes:用形状替换一个层
+ * getShapeByData:获取一个层的形状
+ * getSelectedLayers:获取选中的图层
+ * getTextStyles:获取Text图层的样式
+ * getAjustInfo:获取frame最合适的尺寸
+ * groupSelect:用sketch默认方式给layer打组 * 
+ * 
+ */
 var sketch = __webpack_require__(/*! sketch/dom */ "sketch/dom");
 
 var _api = context;
 var _doc = _api.document;
 var utils = {};
 /**
+ * [detach 解锁symbol]
+ * @return {[type]} [description]
+ */
+
+/**
+ * [detach 解锁symbol]
+ * @param  {[type]} layer   [description]
+ * @return {[type]}         [description]
+ */
+
+utils.detach = function (layer) {
+  var _it = this;
+
+  if (!layer) {
+    return false;
+  }
+
+  var layerType = layer.className(); // 如果是组
+
+  if (layerType == 'MSLayerGroup') {
+    // 依次遍历每一个元素
+    layer.children().forEach(function (it, index) {
+      // 忽略自己
+      if (index === 0) {
+        return;
+      }
+
+      _it.detach(it);
+    });
+  } else if (layerType == 'MSSymbolInstance') {
+    var newGroup = layer.detachByReplacingWithGroup();
+
+    _it.detach(newGroup);
+  }
+};
+/**
+ * [getCurrentArtBoard 获取当前选中元素的artboard]
+ * @return {[type]} [description]
+ */
+
+
+utils.getCurrentArtBoard = function () {
+  var _it = this; // 获取当前选中第一个元素所在的画板
+
+
+  var selections = _api.selection;
+
+  if (!selections.count()) {
+    _it.msg('Please select something 😊');
+
+    return false;
+  }
+
+  var artBoard = selections[0].parentArtboard();
+
+  if (!artBoard) {
+    _it.msg('Please select something 😊');
+
+    return false;
+  } // 一个子元素都没有就什么都不做
+
+
+  var layersNum = artBoard.layers().count();
+
+  if (!(layersNum > 0)) {
+    _it.msg('This is an empty artboard 😊');
+
+    return false;
+  }
+
+  return artBoard;
+};
+/**
  * [msg 显示信息]
  * @param  {[type]} msg [description]
  * @return {[type]}     [description]
  */
 
+
 utils.msg = function (msg) {
   !!msg && _doc.showMessage(msg);
 };
 /**
- * [getLastLayer 获取最后一个字元素]
+ * [getLastLayer 获取最后一个子元素]
  * @param  {[type]} parentGroup [description]
  * @return {[type]}             [description]
  */
@@ -111,7 +205,7 @@ utils.getLastLayer = function (parentGroup) {
   return layers[layers.count() - 1];
 };
 /**
- * [getGroupWithAllSon 获取改层所有元素的拷贝]
+ * [getGroupWithAllSon 获取该层所有元素的拷贝]
  * @param  {[type]} parentGroup [description]
  * @return {[type]}             [description]
  */
@@ -135,7 +229,7 @@ utils.getGroupWithAllSon = function (parentGroup) {
   return group;
 };
 /**
- * [getColorByString 根据颜色字符串转换成sketck 需要的颜色对象]
+ * [getColorByString 根据颜色字符串转换成sketch需要的颜色对象]
  * @param  {[type]} colorString [description]
  * @return {[type]}             [description]
  * Hex
@@ -250,7 +344,7 @@ utils.appendLayers = function (parent, items) {
   }
 };
 /**
- * [replaceLayerByShape]
+ * [replaceLayerByShape 用形状替换一个层]
  * @param  {[type]} shape [description]
  * @param  {[type]} layer [description]
  * @return {[type]}       [description]
@@ -358,31 +452,27 @@ utils.groupSelect = function () {
 };
 /**
  * [groupLayers 将选中的layer用group包裹起来，类似 ctrl+g ]
- * 但是会改变原始图层的位置，感觉还是用groupSelect比较好
+ * 但是会改变原始图层的位置，感觉还是用groupSelect比较好 所以被弃用了
  * @param  {[type]} layers [description]
  * @return {[type]}        [description]
  */
+// utils.groupLayers = function(layers, name) {
+// 	if (!(layers && layers.length > 0)) {
+// 		return false;
+// 	}
+// 	let parent = layers[0].parent;
+// 	if (!parent) {
+// 		parent = sketch.Page.fromNative(layers[0].sketchObject.parentPage())
+// 	}
+// 	let container = new sketch.Group({
+// 		layers: layers,
+// 		name: name || '_',
+// 		parent: parent
+// 	});
+// 	container.adjustToFit();
+// 	return container;
+// };
 
-
-utils.groupLayers = function (layers, name) {
-  if (!(layers && layers.length > 0)) {
-    return false;
-  }
-
-  var parent = layers[0].parent;
-
-  if (!parent) {
-    parent = sketch.Page.fromNative(layers[0].sketchObject.parentPage());
-  }
-
-  var container = new sketch.Group({
-    layers: layers,
-    name: name || '_',
-    parent: parent
-  });
-  container.adjustToFit();
-  return container;
-};
 
 /* harmony default export */ __webpack_exports__["default"] = (utils);
 
@@ -431,9 +521,9 @@ __webpack_require__.r(__webpack_exports__);
   }
 
   var textStyleName = generateStyleName(textStyles);
-  var currentTextStyles = context.document.documentData().layerTextStyles(); // MSSharedStyle.alloc().initWithName_firstInstance(textStyleName, target.style())
-
-  currentTextStyles.addSharedStyleWithName_firstInstance(textStyleName, target.style());
+  var currentTextStyles = context.document.documentData().layerTextStyles();
+  var s = MSSharedStyle.alloc().initWithName_firstInstance(textStyleName, target.style());
+  currentTextStyles.addSharedObject(s);
 
   _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].msg("Success!");
 });
@@ -554,10 +644,14 @@ function scopeIcon(context) {
     frame: new Rectangle(0, 0, ajustInfo.width, ajustInfo.height)
   }); // 重新挪动矩形位置
 
-  shape.frame = shape.localRectToParentRect(new Rectangle({
+  var rect = new Rectangle({
     x: ajustInfo.x,
     y: ajustInfo.y
-  })); // 移动到最底层
+  });
+  rect.changeBasis({
+    from: shape,
+    to: shape.parent
+  }); // 移动到最底层
 
   shape.moveToBack(); // 让容器包含元素
 
@@ -606,8 +700,9 @@ var _api = context;
 var _doc = _api.document;
 
 function App(opt) {
-  // 0 代表地貌
+  this.errorNum = 0; // 0 代表地貌
   // 1 代表线框
+
   this.showType = opt.showType || 0;
   this.init();
 }
@@ -617,32 +712,10 @@ function App(opt) {
 App.prototype.init = function () {
   var _it = this;
 
-  _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].msg('TADA!!!!! 😊'); // 获取当前选中第一个元素所在的画板
-
-
-  var selections = _api.selection;
-
-  if (!selections.count()) {
-    _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].msg('Please select something 😊');
-
-    return;
-  }
-
-  var artBoard = selections[0].parentArtboard();
+  var artBoard = _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].getCurrentArtBoard();
 
   if (!artBoard) {
-    _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].msg('Please select something 😊');
-
-    return;
-  } // 一个子元素都没有就什么都不做
-
-
-  var layersNum = artBoard.layers().count();
-
-  if (!(layersNum > 0)) {
-    _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].msg('This is an empty artboard 😊');
-
-    return;
+    return false;
   } // 如果能找到'_fe'文件夹就直接删掉，然后理解为是第二次操作
 
 
@@ -657,10 +730,21 @@ App.prototype.init = function () {
     }
   }
 
-  var group = _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].getGroupWithAllSon(artBoard); // 依次遍历每一个元素
+  var group = _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].getGroupWithAllSon(artBoard);
+
+  group.setName('_fe'); // group.setIsSelected(true);
+
+  group.setIsLocked(true); // 要先添加到dom里面才能解除组件
+
+  artBoard.addLayers([group]);
+
+  var feGroup = _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].getLastLayer(artBoard); // 解组
 
 
-  group.children().forEach(function (layer, index) {
+  _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].detach(feGroup); // 依次遍历每一个元素
+
+
+  feGroup.children().forEach(function (layer, index) {
     // 忽略自己
     if (index === 0) {
       return;
@@ -668,11 +752,18 @@ App.prototype.init = function () {
 
     var info = _it.getLayerInfo(layer);
 
+    if (info.error) {
+      _it.errorNum++;
+    }
+
     _it.showShapeByInfo(layer, info);
   });
-  group.setName('_fe');
-  group.setIsLocked(true);
-  artBoard.addLayers([group]); // group.setIsSelected(true);
+
+  if (_it.errorNum) {
+    _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].msg('😢 ' + _it.errorNum + ' text error 😢');
+  } else {
+    _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].msg('😊 No text error 😊');
+  }
 };
 
 App.prototype.showShapeByInfo = function (layer, info) {
@@ -721,6 +812,7 @@ App.prototype.getLayerInfo = function (layer) {
   var name = layer.name();
   var type = layer.className();
   var info = {
+    name: name,
     type: type // del:false //是否删除
     // append2Myself:false // 直接在内部添加形状
     // replaceWithShape:false // 将自身替换成形状
@@ -740,14 +832,12 @@ App.prototype.getLayerInfo = function (layer) {
 
 
   if (type == 'MSLayerGroup') {
-    info.name = 'g:' + name;
     info.append2Myself = true;
     return info;
   } // 如果是形状或者是symbol
 
 
   if (type == 'MSShapeGroup' || type == 'MSSymbolInstance') {
-    info.name = 's:' + name;
     info.replaceWithShape = true;
     return info;
   } // 处理文字

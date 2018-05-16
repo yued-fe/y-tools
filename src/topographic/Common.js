@@ -5,6 +5,7 @@ const _doc = _api.document;
 
 
 function App(opt) {
+	this.errorNum = 0;
 	// 0 代表地貌
 	// 1 代表线框
 	this.showType = opt.showType || 0;
@@ -13,25 +14,10 @@ function App(opt) {
 
 App.prototype.init = function() {
 	var _it = this;
-	_utils.msg('TADA!!!!! 😊');
+	var artBoard = _utils.getCurrentArtBoard();
 
-	// 获取当前选中第一个元素所在的画板
-	var selections = _api.selection;
-	if (!selections.count()) {
-		_utils.msg('Please select something 😊');
-		return;
-	}
-	var artBoard = selections[0].parentArtboard();
 	if (!artBoard) {
-		_utils.msg('Please select something 😊');
-		return;
-	}
-
-	// 一个子元素都没有就什么都不做
-	var layersNum = artBoard.layers().count();
-	if (!(layersNum > 0)) {
-		_utils.msg('This is an empty artboard 😊');
-		return;
+		return false;
 	}
 
 	// 如果能找到'_fe'文件夹就直接删掉，然后理解为是第二次操作
@@ -44,22 +30,37 @@ App.prototype.init = function() {
 		}
 	}
 
-
 	var group = _utils.getGroupWithAllSon(artBoard);
+	group.setName('_fe');
+	// group.setIsSelected(true);
+	group.setIsLocked(true);
+
+	// 要先添加到dom里面才能解除组件
+	artBoard.addLayers([group]);
+
+	var feGroup = _utils.getLastLayer(artBoard);
+
+	// 解组
+	_utils.detach(feGroup);
 
 	// 依次遍历每一个元素
-	group.children().forEach(function(layer, index) {
+	feGroup.children().forEach(function(layer, index) {
 		// 忽略自己
 		if (index === 0) {
 			return;
 		}
 		var info = _it.getLayerInfo(layer);
+		if (info.error) {
+			_it.errorNum++;
+		}
 		_it.showShapeByInfo(layer, info);
 	});
-	group.setName('_fe');
-	group.setIsLocked(true);
-	artBoard.addLayers([group]);
-	// group.setIsSelected(true);
+
+	if (_it.errorNum) {
+		_utils.msg('😢 ' + _it.errorNum + ' text error 😢');
+	} else {
+		_utils.msg('😊 No text error 😊');
+	}
 };
 
 App.prototype.showShapeByInfo = function(layer, info) {
@@ -103,6 +104,7 @@ App.prototype.getLayerInfo = function(layer) {
 	var type = layer.className();
 
 	var info = {
+		name: name,
 		type: type
 		// del:false //是否删除
 		// append2Myself:false // 直接在内部添加形状
@@ -122,14 +124,12 @@ App.prototype.getLayerInfo = function(layer) {
 
 	// 如果是文件夹则判断自身
 	if (type == 'MSLayerGroup') {
-		info.name = 'g:' + name;
 		info.append2Myself = true;
 		return info;
 	}
 
 	// 如果是形状或者是symbol
 	if ((type == 'MSShapeGroup') || (type == 'MSSymbolInstance')) {
-		info.name = 's:' + name;
 		info.replaceWithShape = true;
 		return info;
 	}

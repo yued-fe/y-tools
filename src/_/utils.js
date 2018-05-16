@@ -1,8 +1,91 @@
+/**
+ * 基础库
+ * detach:解锁symbol
+ * getCurrentArtBoard:获取当前选中元素的artboard
+ * msg:显示信息
+ * getLastLayer:获取最后一个子元素
+ * getGroupWithAllSon:获取该层所有元素的拷贝
+ * getColorByString:根据颜色字符串转换成sketch需要的颜色对象
+ * setFillColor:设置fill的颜色
+ * setBorderColor:设置边框的颜色
+ * setTextInfo:获取文本的信息
+ * appendLayers:添加元素
+ * replaceLayerByShapes:用形状替换一个层
+ * getShapeByData:获取一个层的形状
+ * getSelectedLayers:获取选中的图层
+ * getTextStyles:获取Text图层的样式
+ * getAjustInfo:获取frame最合适的尺寸
+ * groupSelect:用sketch默认方式给layer打组 * 
+ * 
+ */
+
 const sketch = require('sketch/dom');
 const _api = context;
 const _doc = _api.document;
 
 let utils = {};
+
+/**
+ * [detach 解锁symbol]
+ * @return {[type]} [description]
+ */
+/**
+ * [detach 解锁symbol]
+ * @param  {[type]} layer   [description]
+ * @return {[type]}         [description]
+ */
+utils.detach = function(layer) {
+	var _it = this;
+	if (!layer) {
+		return false;
+	}
+	var layerType = layer.className();
+
+	// 如果是组
+	if (layerType == 'MSLayerGroup') {
+		// 依次遍历每一个元素
+		layer.children().forEach(function(it, index) {
+			// 忽略自己
+			if (index === 0) {
+				return;
+			}
+			_it.detach(it);
+		});
+	} else if (layerType == 'MSSymbolInstance') {
+		var newGroup = layer.detachByReplacingWithGroup();
+		_it.detach(newGroup);
+	}
+};
+
+/**
+ * [getCurrentArtBoard 获取当前选中元素的artboard]
+ * @return {[type]} [description]
+ */
+utils.getCurrentArtBoard = function() {
+	var _it = this;
+
+	// 获取当前选中第一个元素所在的画板
+	var selections = _api.selection;
+	if (!selections.count()) {
+		_it.msg('Please select something 😊');
+		return false;
+	}
+	var artBoard = selections[0].parentArtboard();
+	if (!artBoard) {
+		_it.msg('Please select something 😊');
+		return false;
+	}
+
+	// 一个子元素都没有就什么都不做
+	var layersNum = artBoard.layers().count();
+	if (!(layersNum > 0)) {
+		_it.msg('This is an empty artboard 😊');
+		return false;
+	}
+
+	return artBoard;
+};
+
 /**
  * [msg 显示信息]
  * @param  {[type]} msg [description]
@@ -13,7 +96,7 @@ utils.msg = function(msg) {
 };
 
 /**
- * [getLastLayer 获取最后一个字元素]
+ * [getLastLayer 获取最后一个子元素]
  * @param  {[type]} parentGroup [description]
  * @return {[type]}             [description]
  */
@@ -23,7 +106,7 @@ utils.getLastLayer = function(parentGroup) {
 };
 
 /**
- * [getGroupWithAllSon 获取改层所有元素的拷贝]
+ * [getGroupWithAllSon 获取该层所有元素的拷贝]
  * @param  {[type]} parentGroup [description]
  * @return {[type]}             [description]
  */
@@ -50,7 +133,7 @@ utils.getGroupWithAllSon = function(parentGroup) {
 
 
 /**
- * [getColorByString 根据颜色字符串转换成sketck 需要的颜色对象]
+ * [getColorByString 根据颜色字符串转换成sketch需要的颜色对象]
  * @param  {[type]} colorString [description]
  * @return {[type]}             [description]
  * Hex
@@ -157,7 +240,7 @@ utils.appendLayers = function(parent, items) {
 };
 
 /**
- * [replaceLayerByShape]
+ * [replaceLayerByShape 用形状替换一个层]
  * @param  {[type]} shape [description]
  * @param  {[type]} layer [description]
  * @return {[type]}       [description]
@@ -210,13 +293,19 @@ utils.getSelectedLayers = function() {
  * @param  {[type]} text [textLayer]
  * @return {[type]}      [description]
  */
-utils.getTextStyles=function(text) {
+utils.getTextStyles = function(text) {
 	const fontSize = text.fontSize();
 	const fontFamily = text.fontPostscriptName().split('-')[0];
 	const fontWeight = text.fontPostscriptName().split('-')[1];
 	const lineHeight = text.lineHeight();
 	const color = '#' + text.textColor().NSColorWithColorSpace(nil).hexValue();
-  	return { fontSize, fontFamily, fontWeight, lineHeight, color }
+	return {
+		fontSize,
+		fontFamily,
+		fontWeight,
+		lineHeight,
+		color
+	}
 };
 
 /**
@@ -252,25 +341,25 @@ utils.groupSelect = function() {
 
 /**
  * [groupLayers 将选中的layer用group包裹起来，类似 ctrl+g ]
- * 但是会改变原始图层的位置，感觉还是用groupSelect比较好
+ * 但是会改变原始图层的位置，感觉还是用groupSelect比较好 所以被弃用了
  * @param  {[type]} layers [description]
  * @return {[type]}        [description]
  */
-utils.groupLayers = function(layers, name) {
-	if (!(layers && layers.length > 0)) {
-		return false;
-	}
-	let parent = layers[0].parent;
-	if (!parent) {
-		parent = sketch.Page.fromNative(layers[0].sketchObject.parentPage())
-	}
-	let container = new sketch.Group({
-		layers: layers,
-		name: name || '_',
-		parent: parent
-	});
-	container.adjustToFit();
-	return container;
-};
+// utils.groupLayers = function(layers, name) {
+// 	if (!(layers && layers.length > 0)) {
+// 		return false;
+// 	}
+// 	let parent = layers[0].parent;
+// 	if (!parent) {
+// 		parent = sketch.Page.fromNative(layers[0].sketchObject.parentPage())
+// 	}
+// 	let container = new sketch.Group({
+// 		layers: layers,
+// 		name: name || '_',
+// 		parent: parent
+// 	});
+// 	container.adjustToFit();
+// 	return container;
+// };
 
 export default utils;
