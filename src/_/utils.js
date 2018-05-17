@@ -8,7 +8,7 @@
  * getColorByString:根据颜色字符串转换成sketch需要的颜色对象
  * setFillColor:设置fill的颜色
  * setBorderColor:设置边框的颜色
- * setTextInfo:获取文本的信息
+ * checkTextLayer:校验文本的信息
  * appendLayers:添加元素
  * replaceLayerByShapes:用形状替换一个层
  * getShapeByData:获取一个层的形状
@@ -27,34 +27,59 @@ let utils = {};
 
 /**
  * [detach 解锁symbol]
- * @return {[type]} [description]
- */
-/**
- * [detach 解锁symbol]
  * @param  {[type]} layer   [description]
  * @return {[type]}         [description]
  */
-utils.detach = function(layer) {
+utils.detach = function(layer, mapChildren) {
 	var _it = this;
 	if (!layer) {
 		return false;
 	}
 	var layerType = layer.className();
+	var layerName = layer.name();
+	var mapChildren = mapChildren || function() {
+		return true;
+	};
 
-	// 如果是组
-	if (layerType == 'MSLayerGroup') {
+	// 如果文件名不以_开头的symbol才解锁
+	if ((layerType == 'MSSymbolInstance') && (layerName.charAt(0) != '_')) {
+		var newGroup = layer.detachByReplacingWithGroup();
+		_it.detach(newGroup);
+	} else if (layer.children) {
 		// 依次遍历每一个元素
 		layer.children().forEach(function(it, index) {
 			// 忽略自己
 			if (index === 0) {
 				return;
 			}
+			var isPass = mapChildren(it);
+			if (isPass == false) {
+				return;
+			}
 			_it.detach(it);
 		});
-	} else if (layerType == 'MSSymbolInstance') {
-		var newGroup = layer.detachByReplacingWithGroup();
-		_it.detach(newGroup);
 	}
+};
+
+/**
+ * [forEachKids 遍历所有不带下划线开头的子孙]
+ * @param  {[type]}   it       [description]
+ * @param  {Function} callback [description]
+ * @return {[type]}            [description]
+ */
+utils.forEachKids = function(it, callback) {
+	var _it = this;
+	it.layers().forEach(function(layer) {
+		var name = layer.name();
+		if (name.charAt(0) == '_') {
+			layer.removeFromParent();
+			return;
+		}
+		callback(layer);
+		if (layer.layers) {
+			_it.forEachKids(layer, callback);
+		}
+	});
 };
 
 /**
@@ -133,6 +158,102 @@ utils.getGroupWithAllSon = function(parentGroup) {
 
 
 /**
+ * [getGroupWithAllSon 获取该层所有元素的拷贝]
+ * @param  {[type]} parentGroup [description]
+ * @return {[type]}             [description]
+ */
+utils.getOneSelection = function() {
+	var _it = this;
+	var selections = _api.selection;
+	var selectionsNum = selections.count();
+	if (!selectionsNum) {
+		_it.msg('Please select something 😊');
+		return false;
+	} else if (selectionsNum != 1) {
+		_it.msg('Please select only 1 thing, you selecte ' + selectionsNum);
+		return false;
+	}
+
+	var selection = selections[0];
+	if (selection.name().charAt(0) == '_') {
+		_it.msg('your selection is start with "_" 😢');
+		return;
+	}
+
+	if (selection.layers && !selection.layers().count()) {
+		_it.msg('your selection is empty 😢');
+		return false;
+	}
+
+	return selection;
+};
+
+/**
+ * [getCopyGroup 获取这个对象的拷贝到一个组]
+ * @param  {[type]} it [description]
+ * @return {[type]}    [description]
+ */
+utils.getCopyGroup = function(it) {
+	// 创建一个空的Group
+	var group = MSLayerGroup.new();
+	var copyLayer = function(layer) {
+		var duplicate = layer.copy();
+		group.insertLayers_beforeLayer_([duplicate], layer);
+	};
+
+	if (it.layers) {
+		// 遍历这个画板里面的所有子元素
+		it.layers().forEach(function(layer) {
+			var name = layer.name();
+			// 如果子元素的名字是'_fe'那么删除
+			// 如果自元素是以下划线开头则什么都不做
+			if (name.substr(0, 3) == '_fe') {
+				layer.removeFromParent();
+			} else if (name.charAt(0) != '_') {
+				copyLayer(layer);
+			}
+		});
+	} else {
+		copyLayer(it);
+	}
+
+	return group;
+};
+
+/**
+ * [createFeGroup 根据对象获取fe组]
+ * @param  {[type]} it [description]
+ * @return {[type]}    [description]
+ */
+utils.createFeGroup = function(it) {
+	var _it = this;
+	var type = it.className();
+	// 判断是否为Artboard
+	if ((type == 'MSArtboardGroup')|| (type == 'MSLayerGroup')) {
+		var wrapper = it;
+	} else {
+		var wrapper = it.parentGroup();
+	}
+	// 如果能找到'_fe'文件夹就直接删掉，然后理解为是第二次操作
+	var lastLayer = _it.getLastLayer(wrapper);
+	if (lastLayer.name() == '_fe') {
+		lastLayer.removeFromParent();
+	}
+	var feGroup = _it.getCopyGroup(it);
+	feGroup.setName('_fe');
+	// group.setIsSelected(true);
+	feGroup.setIsLocked(true);
+
+	// 要先添加到dom里面才能解除组件
+	wrapper.addLayers([feGroup]);
+
+	// 重新获取 '_fe' 文件夹
+	feGroup = _it.getLastLayer(wrapper);
+
+	return feGroup;
+};
+
+/**
  * [getColorByString 根据颜色字符串转换成sketch需要的颜色对象]
  * @param  {[type]} colorString [description]
  * @return {[type]}             [description]
@@ -190,37 +311,30 @@ utils.setBorderColor = function(shape, color, thickness) {
 };
 
 /**
- * [setTextInfo 获取文本的信息]
+ * [checkTextLayer 校验文本的信息]
  * @param {[type]} info  [description]
  * @param {[type]} layer [description]
  */
-utils.setTextInfo = function(info, layer) {
-	var preName = 't:';
+utils.checkTextLayer = function(layer) {
 
 	// 如果文字没有使用共享样式报错
 	if (!layer.style().sharedObjectID()) {
-		info.error = true;
-		info.name = preName + 'No share textStyle';
-		return;
+		return 'No share textStyle';
 	}
 
 	// 如果行高不存在报错
 	var lineHeight = layer.lineHeight();
 	if (!lineHeight) {
-		info.error = true;
-		info.name = preName + 'No lh';
-		return;
+		return 'No lh';
 	}
 
 	// 高度不是行高的固定倍数报错
 	var height = layer.frame().height();
 	if (height % lineHeight != 0) {
-		info.error = true;
-		info.name = preName + 'h % lh != 0';
-		return;
+		return 'h % lh != 0';
 	}
 
-	info.name = preName + layer.name();
+	return true;
 };
 /**
  * [appendLayers 添加元素]
@@ -260,6 +374,7 @@ utils.getShapeByData = function(data) {
 
 	// 获取形状大小
 	var cgRect = CGRectMake(data.x, data.y, data.w, data.h);
+
 	// 创建形状
 	var newShape = MSShapeGroup.shapeWithRect_(cgRect);
 

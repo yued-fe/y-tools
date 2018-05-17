@@ -95,7 +95,7 @@ __webpack_require__.r(__webpack_exports__);
  * getColorByString:根据颜色字符串转换成sketch需要的颜色对象
  * setFillColor:设置fill的颜色
  * setBorderColor:设置边框的颜色
- * setTextInfo:获取文本的信息
+ * checkTextLayer:校验文本的信息
  * appendLayers:添加元素
  * replaceLayerByShapes:用形状替换一个层
  * getShapeByData:获取一个层的形状
@@ -112,25 +112,30 @@ var _doc = _api.document;
 var utils = {};
 /**
  * [detach 解锁symbol]
- * @return {[type]} [description]
- */
-
-/**
- * [detach 解锁symbol]
  * @param  {[type]} layer   [description]
  * @return {[type]}         [description]
  */
 
-utils.detach = function (layer) {
+utils.detach = function (layer, mapChildren) {
   var _it = this;
 
   if (!layer) {
     return false;
   }
 
-  var layerType = layer.className(); // 如果是组
+  var layerType = layer.className();
+  var layerName = layer.name();
 
-  if (layerType == 'MSLayerGroup') {
+  var mapChildren = mapChildren || function () {
+    return true;
+  }; // 如果文件名不以_开头的symbol才解锁
+
+
+  if (layerType == 'MSSymbolInstance' && layerName.charAt(0) != '_') {
+    var newGroup = layer.detachByReplacingWithGroup();
+
+    _it.detach(newGroup);
+  } else if (layer.children) {
     // 依次遍历每一个元素
     layer.children().forEach(function (it, index) {
       // 忽略自己
@@ -138,13 +143,41 @@ utils.detach = function (layer) {
         return;
       }
 
+      var isPass = mapChildren(it);
+
+      if (isPass == false) {
+        return;
+      }
+
       _it.detach(it);
     });
-  } else if (layerType == 'MSSymbolInstance') {
-    var newGroup = layer.detachByReplacingWithGroup();
-
-    _it.detach(newGroup);
   }
+};
+/**
+ * [forEachKids 遍历所有不带下划线开头的子孙]
+ * @param  {[type]}   it       [description]
+ * @param  {Function} callback [description]
+ * @return {[type]}            [description]
+ */
+
+
+utils.forEachKids = function (it, callback) {
+  var _it = this;
+
+  it.layers().forEach(function (layer) {
+    var name = layer.name();
+
+    if (name.charAt(0) == '_') {
+      layer.removeFromParent();
+      return;
+    }
+
+    callback(layer);
+
+    if (layer.layers) {
+      _it.forEachKids(layer, callback);
+    }
+  });
 };
 /**
  * [getCurrentArtBoard 获取当前选中元素的artboard]
@@ -229,6 +262,115 @@ utils.getGroupWithAllSon = function (parentGroup) {
   return group;
 };
 /**
+ * [getGroupWithAllSon 获取该层所有元素的拷贝]
+ * @param  {[type]} parentGroup [description]
+ * @return {[type]}             [description]
+ */
+
+
+utils.getOneSelection = function () {
+  var _it = this;
+
+  var selections = _api.selection;
+  var selectionsNum = selections.count();
+
+  if (!selectionsNum) {
+    _it.msg('Please select something 😊');
+
+    return false;
+  } else if (selectionsNum != 1) {
+    _it.msg('Please select only 1 thing, you selecte ' + selectionsNum);
+
+    return false;
+  }
+
+  var selection = selections[0];
+
+  if (selection.name().charAt(0) == '_') {
+    _it.msg('your selection is start with "_" 😢');
+
+    return;
+  }
+
+  if (selection.layers && !selection.layers().count()) {
+    _it.msg('your selection is empty 😢');
+
+    return false;
+  }
+
+  return selection;
+};
+/**
+ * [getCopyGroup 获取这个对象的拷贝到一个组]
+ * @param  {[type]} it [description]
+ * @return {[type]}    [description]
+ */
+
+
+utils.getCopyGroup = function (it) {
+  // 创建一个空的Group
+  var group = MSLayerGroup.new();
+
+  var copyLayer = function copyLayer(layer) {
+    var duplicate = layer.copy();
+    group.insertLayers_beforeLayer_([duplicate], layer);
+  };
+
+  if (it.layers) {
+    // 遍历这个画板里面的所有子元素
+    it.layers().forEach(function (layer) {
+      var name = layer.name(); // 如果子元素的名字是'_fe'那么删除
+      // 如果自元素是以下划线开头则什么都不做
+
+      if (name.substr(0, 3) == '_fe') {
+        layer.removeFromParent();
+      } else if (name.charAt(0) != '_') {
+        copyLayer(layer);
+      }
+    });
+  } else {
+    copyLayer(it);
+  }
+
+  return group;
+};
+/**
+ * [createFeGroup 根据对象获取fe组]
+ * @param  {[type]} it [description]
+ * @return {[type]}    [description]
+ */
+
+
+utils.createFeGroup = function (it) {
+  var _it = this;
+
+  var type = it.className(); // 判断是否为Artboard
+
+  if (type == 'MSArtboardGroup' || type == 'MSLayerGroup') {
+    var wrapper = it;
+  } else {
+    var wrapper = it.parentGroup();
+  } // 如果能找到'_fe'文件夹就直接删掉，然后理解为是第二次操作
+
+
+  var lastLayer = _it.getLastLayer(wrapper);
+
+  if (lastLayer.name() == '_fe') {
+    lastLayer.removeFromParent();
+  }
+
+  var feGroup = _it.getCopyGroup(it);
+
+  feGroup.setName('_fe'); // group.setIsSelected(true);
+
+  feGroup.setIsLocked(true); // 要先添加到dom里面才能解除组件
+
+  wrapper.addLayers([feGroup]); // 重新获取 '_fe' 文件夹
+
+  feGroup = _it.getLastLayer(wrapper);
+  return feGroup;
+};
+/**
  * [getColorByString 根据颜色字符串转换成sketch需要的颜色对象]
  * @param  {[type]} colorString [description]
  * @return {[type]}             [description]
@@ -289,40 +431,33 @@ utils.setBorderColor = function (shape, color, thickness) {
   border.thickness = thickness || 1;
 };
 /**
- * [setTextInfo 获取文本的信息]
+ * [checkTextLayer 校验文本的信息]
  * @param {[type]} info  [description]
  * @param {[type]} layer [description]
  */
 
 
-utils.setTextInfo = function (info, layer) {
-  var preName = 't:'; // 如果文字没有使用共享样式报错
-
+utils.checkTextLayer = function (layer) {
+  // 如果文字没有使用共享样式报错
   if (!layer.style().sharedObjectID()) {
-    info.error = true;
-    info.name = preName + 'No share textStyle';
-    return;
+    return 'No share textStyle';
   } // 如果行高不存在报错
 
 
   var lineHeight = layer.lineHeight();
 
   if (!lineHeight) {
-    info.error = true;
-    info.name = preName + 'No lh';
-    return;
+    return 'No lh';
   } // 高度不是行高的固定倍数报错
 
 
   var height = layer.frame().height();
 
   if (height % lineHeight != 0) {
-    info.error = true;
-    info.name = preName + 'h % lh != 0';
-    return;
+    return 'h % lh != 0';
   }
 
-  info.name = preName + layer.name();
+  return true;
 };
 /**
  * [appendLayers 添加元素]
@@ -489,7 +624,10 @@ utils.groupSelect = function () {
 __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _utils_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../_/utils.js */ "./src/_/utils.js");
 
-/* harmony default export */ __webpack_exports__["default"] = (function (context) {
+
+function App() {
+  var _this = this;
+
   if (!context.selection.length) {
     _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].msg("Please select a layer");
 
@@ -520,15 +658,18 @@ __webpack_require__.r(__webpack_exports__);
     return;
   }
 
-  var textStyleName = generateStyleName(textStyles);
+  var textStyleName = _this.generateStyleName(textStyles);
+
   var currentTextStyles = context.document.documentData().layerTextStyles();
   var s = MSSharedStyle.alloc().initWithName_firstInstance(textStyleName, target.style());
   currentTextStyles.addSharedObject(s);
 
   _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].msg("Success!");
-});
+}
 
-function generateStyleName(styles) {
+;
+
+App.prototype.generateStyleName = function (styles) {
   var fontSize = styles.fontSize,
       fontFamily = styles.fontFamily,
       fontWeight = styles.fontWeight,
@@ -541,7 +682,12 @@ function generateStyleName(styles) {
   }
 
   return sharedTextName;
-}
+};
+
+/* harmony default export */ __webpack_exports__["default"] = (function () {
+  new App();
+});
+;
 
 /***/ }),
 
@@ -700,7 +846,7 @@ var _api = context;
 var _doc = _api.document;
 
 function App(opt) {
-  this.errorNum = 0; // 0 代表地貌
+  this.shapeNum = 0; // 0 代表地貌
   // 1 代表线框
 
   this.showType = opt.showType || 0;
@@ -712,146 +858,80 @@ function App(opt) {
 App.prototype.init = function () {
   var _it = this;
 
-  var artBoard = _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].getCurrentArtBoard();
+  _it.startTime = new Date().getTime();
 
-  if (!artBoard) {
-    return false;
-  } // 如果能找到'_fe'文件夹就直接删掉，然后理解为是第二次操作
+  var selection = _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].getOneSelection();
 
-
-  if (_it.showType == 0) {
-    var lastLayer = _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].getLastLayer(artBoard);
-
-    var lastLayerName = lastLayer.name();
-
-    if (lastLayerName == '_fe') {
-      lastLayer.removeFromParent();
-      return;
-    }
+  if (!selection) {
+    return;
   }
 
-  var group = _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].getGroupWithAllSon(artBoard);
+  var feGroup = _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].createFeGroup(selection);
 
-  group.setName('_fe'); // group.setIsSelected(true);
+  if (!feGroup) {
+    return;
+  }
 
-  group.setIsLocked(true); // 要先添加到dom里面才能解除组件
+  _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].detach(feGroup, function (layer) {
+    var name = layer.name(); // 删除下划线文件
 
-  artBoard.addLayers([group]);
+    if (name.charAt(0) == '_') {
+      layer.removeFromParent();
+      return false;
+    } // 忽略 i/文件
 
-  var feGroup = _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].getLastLayer(artBoard); // 解组
 
-
-  _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].detach(feGroup); // 依次遍历每一个元素
+    if (name.substr(0, 2) == 'i/') {
+      return false;
+    }
+  }); // 依次遍历每一个元素
 
 
   feGroup.children().forEach(function (layer, index) {
-    // 忽略自己
-    if (index === 0) {
+    if (index == 0) {
       return;
     }
 
-    var info = _it.getLayerInfo(layer);
-
-    if (info.error) {
-      _it.errorNum++;
-    }
-
-    _it.showShapeByInfo(layer, info);
+    _it.showShape(layer);
   });
 
-  if (_it.errorNum) {
-    _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].msg('😢 ' + _it.errorNum + ' text error 😢');
-  } else {
-    _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].msg('😊 No text error 😊');
-  }
+  _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].msg('I draw ' + _it.shapeNum + ' shapes in ' + _it.getRunTime() + 'ms 😊');
 };
 
-App.prototype.showShapeByInfo = function (layer, info) {
-  var _it = this; // 删除默认要删除的
+App.prototype.getRunTime = function () {
+  var _it = this;
 
-
-  if (info.del) {
-    layer.removeFromParent();
-    return;
-  }
-
-  var frame = layer.frame();
-
-  var shape = _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].getShapeByData({
-    showType: _it.showType,
-    error: info.error,
-    name: info.name,
-    x: info.type == 'MSLayerGroup' ? 0 : frame.x(),
-    y: info.type == 'MSLayerGroup' ? 0 : frame.y(),
-    w: frame.width(),
-    h: frame.height()
-  });
-
-  if (info.append2Myself) {
-    _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].appendLayers(layer, [shape]);
-
-    return;
-  }
-
-  if (info.replaceWithShape) {
-    _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].replaceLayerByShapes(layer, [shape]);
-
-    return;
-  }
+  var endTime = new Date().getTime();
+  var startTime = _it.startTime;
+  return endTime - startTime;
 };
-/**
- * [getLayerInfo 输出layer信息]
- * @param  {[type]} layer [description]
- * @return {[type]}       [description]
- */
 
-
-App.prototype.getLayerInfo = function (layer) {
+App.prototype.showShape = function (layer) {
   var _it = this;
 
   var name = layer.name();
   var type = layer.className();
-  var info = {
-    name: name,
-    type: type // del:false //是否删除
-    // append2Myself:false // 直接在内部添加形状
-    // replaceWithShape:false // 将自身替换成形状
+  var isGroup = type == 'MSLayerGroup' ? true : false; // 创建形状
 
-  }; // 如果以下划线开头则删除这个元素
+  var frame = layer.frame();
+  var shapeData = {
+    showType: _it.showType,
+    name: '_' + name,
+    x: isGroup ? 0 : frame.x(),
+    y: isGroup ? 0 : frame.y(),
+    w: frame.width(),
+    h: frame.height()
+  };
 
-  if (name.charAt(0) == '_') {
-    info.del = true;
-    return info;
-  } // 如果是图片也删除这个元素
+  var shape = _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].getShapeByData(shapeData);
 
+  _it.shapeNum++;
 
-  if (type == 'MSBitmapLayer') {
-    info.del = true;
-    return info;
-  } // 如果是文件夹则判断自身
-
-
-  if (type == 'MSLayerGroup') {
-    info.append2Myself = true;
-    return info;
-  } // 如果是形状或者是symbol
-
-
-  if (type == 'MSShapeGroup' || type == 'MSSymbolInstance') {
-    info.replaceWithShape = true;
-    return info;
-  } // 处理文字
-
-
-  if (type == 'MSTextLayer') {
-    info.replaceWithShape = true;
-
-    _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].setTextInfo(info, layer);
-
-    return info;
+  if (isGroup) {
+    _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].appendLayers(layer, [shape]);
+  } else {
+    _utils_js__WEBPACK_IMPORTED_MODULE_0__["default"].replaceLayerByShapes(layer, [shape]);
   }
-
-  return info;
 };
 
 /* harmony default export */ __webpack_exports__["default"] = (App);
